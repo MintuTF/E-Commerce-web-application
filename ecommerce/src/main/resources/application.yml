@@ -9,3 +9,6 @@ spring:
 server:
     port: 8080
 #            password: cs572
+
+jwt.secret.key: minte
+jwt.expiration.time: 1000000

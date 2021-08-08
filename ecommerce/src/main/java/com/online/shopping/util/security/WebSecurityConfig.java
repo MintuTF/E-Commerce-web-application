@@ -1,10 +1,13 @@
 package com.online.shopping.util.security;
 
 
+import com.online.shopping.util.security.jwt.AuthEntryPointJwt;
+import com.online.shopping.util.security.jwt.AuthTokenFilter;
 import com.online.shopping.util.userdetails.UserDetailsServiceimp;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.SecurityBuilder;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
@@ -18,6 +21,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -28,7 +34,16 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 
     @Autowired
+    private AuthEntryPointJwt unauthorizedHandler;
+    @Autowired
     private UserDetailsServiceimp userDetailsServiceimp;
+
+    @Bean
+    public AuthTokenFilter authenticationJwtTokenFilter() {
+
+        return new AuthTokenFilter();
+    }
+
      @Override
     public void configure(AuthenticationManagerBuilder authenticationManagerBuilder) throws Exception {
     authenticationManagerBuilder.userDetailsService(userDetailsServiceimp).passwordEncoder(encoder());
@@ -47,11 +62,54 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
-        http.cors().and().csrf().disable().authorizeRequests().
-                antMatchers("/api/signup").permitAll().
-        anyRequest().permitAll();
+//        http.cors().and().csrf().disable().authorizeRequests().
+//                antMatchers("/api/signup","/api/signin").permitAll().
+//        anyRequest().authenticated();
 
-       //http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
+        // Enable CORS and disable CSRF
+        http = http.cors().and().csrf().disable();
+
+        // Set session management to stateless
+        http = http
+                .sessionManagement()
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                .and();
+
+        // Set unauthorized requests exception handler
+        http = http
+                .exceptionHandling()
+                .authenticationEntryPoint(unauthorizedHandler)
+                .and();
+
+        // Set permissions on endpoints
+        http.authorizeRequests()
+                // Our public endpoints
+                .antMatchers("/api/public/signin","/api/public/signup").permitAll()
+                // Our private endpoints
+                .anyRequest().authenticated();
+
+        // Add JWT token filter
+        http.addFilterBefore(
+                authenticationJwtTokenFilter(),
+                UsernamePasswordAuthenticationFilter.class
+        );
+
+
+
+    }
+
+    // Used by spring security if CORS is enabled.
+    @Bean
+    public CorsFilter corsFilter() {
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowCredentials(true);
+        config.addAllowedOrigin("*");
+        config.addAllowedHeader("*");
+        config.addAllowedMethod("*");
+        source.registerCorsConfiguration("/**", config);
+        return new CorsFilter(source);
     }
 
 }

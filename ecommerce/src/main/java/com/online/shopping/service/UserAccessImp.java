@@ -7,19 +7,25 @@ import com.online.shopping.repository.UserAccessRepository;
 import com.online.shopping.repository.UserRoleRepository;
 import com.online.shopping.util.payload.LoginRequest;
 import com.online.shopping.util.payload.SignupRequest;
+import com.online.shopping.util.payload.response.JwtResponse;
+import com.online.shopping.util.security.jwt.JwtUtils;
 import com.online.shopping.util.userdetails.UserDetailsimp;
 import org.apache.catalina.User;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Transactional
 @Service
@@ -33,7 +39,8 @@ public class UserAccessImp implements UserAccessService {
     @Autowired
     private AuthenticationManager authenticationManager;
 
-
+   @Autowired
+   private JwtUtils jwtUtils;
 
     @Override
     public UserAccess createUser(SignupRequest signupRequest) {
@@ -49,16 +56,28 @@ public class UserAccessImp implements UserAccessService {
     }
 
     @Override
-    public UserDetailsimp loginUser(LoginRequest loginRequest) {
+    public JwtResponse loginUser(LoginRequest loginRequest) {
 
 
 
         Authentication authentication=authenticationManager
                 .authenticate(new UsernamePasswordAuthenticationToken(loginRequest.getUsername(),loginRequest.getPassword()));
+       // set to the context
         SecurityContextHolder.getContext().setAuthentication(authentication);
+        //get current user or principal
         UserDetailsimp userDetailsimp=(UserDetailsimp) authentication.getPrincipal();
+        System.out.println(authentication);
 
-        return userDetailsimp;
+        String jwt = jwtUtils.generateJwtToken(authentication);
+
+
+        List<String> roles = userDetailsimp.getAuthorities()
+                .stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toList());
+
+        JwtResponse jwtResponse=  new JwtResponse(jwt,userDetailsimp);
+        return jwtResponse;
 
     }
 
