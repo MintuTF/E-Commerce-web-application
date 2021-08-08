@@ -1,0 +1,11 @@
+spring:
+    data:
+        mongodb:
+            database: online_shopping
+            port: 27017
+            host: localhost
+#            authentication-database: admin
+#            username: mwa
+server:
+    port: 8080
+#            password: cs572
